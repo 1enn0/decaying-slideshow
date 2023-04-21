@@ -2,7 +2,10 @@ import tkinter as tk
 from pathlib import Path
 from itertools import cycle
 from PIL import Image, ImageTk
+from collections import deque
 
+import numpy as np
+from lib import *
 
 class Application(tk.Tk):
 
@@ -13,18 +16,18 @@ class Application(tk.Tk):
         self.geometry("800x400")
         self.fullscreen = False
         self.attributes("-fullscreen", self.fullscreen)
-        self.configure(background='black', borderwidth=0, highlightthickness=0)
+        # self.configure(background='black', borderwidth=0, highlightthickness=0)
+        self.configure(background='black')
         self.update_idletasks()
         self.resizable(width=True, height=True)
 
         self.current_slide = tk.Label(self, borderwidth=0, highlightthickness=0)
         self.current_slide.pack()
 
-        self.discarded = set()
-        self.image_paths = set()
-        self.images = cycle(self.image_paths)
+        self.img_catalog = list() # all images that we know of
+        self.img_queue = deque() # new images that have not been shown
 
-        self.duration_ms = 3000
+        self.duration_ms = 4000
 
         # set up key binding
         self.bind("<Escape>",lambda e: self.destroy())
@@ -42,25 +45,16 @@ class Application(tk.Tk):
     def set_image_directory(self, path):
         from pathlib import Path
         self.image_dir = Path(path)
-        self.update_images()
 
     def update_images(self):
+        all_images_in_dir = set([ImageEntry(p) for p in self.image_dir.glob('*.jpg')])
+        new_images = all_images_in_dir - set(self.img_catalog) - set(self.img_queue)
 
-
-        new_image_paths = set(self.image_dir.glob("*.jpg")) - self.discarded
-
-        diff = new_image_paths - self.image_paths
-
-        if diff or (not new_image_paths and self.image_paths):
-            new_set = [p.name for p in diff] or 'empty'
-            print(f'[image folder] new set: {new_set}')
-            # new images were added
-            self.images = cycle(diff)
-            self.discarded.update(self.image_paths)
-            self.image_paths = diff
-
-
-        # self.images = cycle(zip(map(lambda p: p.name, image_paths), map(ImageTk.PhotoImage, map(Image.open, image_paths))))
+        # if there are new images, add them to the queue (ordered by age)
+        if new_images:
+            for img in sorted(new_images):
+                self.img_queue.append(img)
+            print(f'[update_images] {len(new_images)} new images, queue: {len(self.img_queue)}, catalog: {len(self.img_catalog)}')
 
     def load_image(self, image_path):
         image = Image.open(image_path)
@@ -81,13 +75,24 @@ class Application(tk.Tk):
 
     def display_next_slide(self):
         self.update_images()
+        next_img_entry = None
         try:
-            next_image_path = next(self.images)
-            self.next_image = self.load_image(next_image_path)
-            self.current_slide.config(image=self.next_image)
-            self.title(next_image_path.name)
-        except StopIteration:
+            next_img_entry = self.img_queue.popleft() # newest image in queue
+            self.img_catalog.append(next_img_entry)
+            print(f'[display_next_slide]: showing {next_img_entry.name}, queue: {len(self.img_queue)}, catalog: {len(self.img_catalog)}')
+
+
+        except IndexError: # queue is empty
+            print(f'[display_next_slide]: queue empty, catalog: {len(self.img_catalog)}')
             self.current_slide.config(image='', text=f'Add some images to \"{self.image_dir}\"', background='#000000', foreground='#ffffff', pady=10)
+
+        if next_img_entry is not None:
+            next_img_entry.increment_reveals()
+            self.next_image = self.load_image(next_img_entry.path)
+            self.current_slide.config(image=self.next_image)
+            self.title(next_img_entry.name)
+            print(f'num reveals in catalog: {[elt.num_reveals for elt in self.img_catalog]}')
+
 
         self.after(self.duration_ms, self.display_next_slide)
 
