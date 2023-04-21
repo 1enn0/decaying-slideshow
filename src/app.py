@@ -25,9 +25,10 @@ class Application(tk.Tk):
 
         self.img_catalog = list() # all images that we know of
         self.img_queue = deque() # new images that have not been shown
-        self.last_shown_image = None
+        self.remember_n_last_images = 2
+        self.last_shown_images = []
 
-        self.duration_ms = 2000
+        self.duration_ms = 5000
 
         # set up key binding
         self.bind("<Escape>",lambda e: self.destroy())
@@ -102,24 +103,24 @@ class Application(tk.Tk):
                     least_shown = sorted([self.img_catalog[i] for i in idcs])
 
                     for candidate in least_shown:
-                        if self.last_shown_image is not None and candidate != self.last_shown_image:
+                        if candidate not in self.last_shown_images:
                             next_img_entry = candidate
                             break
                     
                     if next_img_entry is not None:
                         break
 
-            else:
-                self.current_slide.config(image='', text=f'Add some images to \"{self.image_dir}\"', background='#000000', foreground='#ffffff', pady=10)
-                print(f'[display_next_slide]: queue empty, catalog empty')
 
         if next_img_entry is not None:
             next_img_entry.increment_reveals()
-            self.last_shown_image = next_img_entry
+            self.last_shown_images = [next_img_entry] + self.last_shown_images[:self.remember_n_last_images - 1]
             self.next_image = self.load_image(next_img_entry.path)
             self.current_slide.config(image=self.next_image)
             self.title(next_img_entry.name)
             print(f'num reveals in catalog: {[elt.num_reveals for elt in self.img_catalog]}')
+        else:
+            self.current_slide.config(image='', text=f'Add some images to \"{self.image_dir}\"', background='#000000', foreground='#ffffff', pady=10)
+            print(f'[display_next_slide]: queue empty, catalog {len(self.img_catalog)}')
 
 
         self.after(self.duration_ms, self.display_next_slide)
