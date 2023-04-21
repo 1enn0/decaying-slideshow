@@ -1,7 +1,7 @@
 import tkinter as tk
 from pathlib import Path
 from itertools import cycle
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageOps
 from collections import deque
 
 import numpy as np
@@ -25,6 +25,7 @@ class Application(tk.Tk):
 
         self.img_catalog = list() # all images that we know of
         self.img_queue = deque() # new images that have not been shown
+
         self.remember_n_last_images = 2
         self.last_shown_images = []
 
@@ -32,11 +33,11 @@ class Application(tk.Tk):
 
         # set up key binding
         self.bind("<Escape>",lambda e: self.destroy())
-        self.bind("<Configure>", self.resize)
+        # self.bind("<Configure>", self.resize)
         self.bind("<Key-f>", self.toggle_fullscreen)
 
-    def resize(self, event):
-        pass
+    # def resize(self, event):
+    #     pass
 
     def toggle_fullscreen(self, event):
         self.fullscreen = not self.fullscreen # toggle state
@@ -60,6 +61,7 @@ class Application(tk.Tk):
         
     def load_image(self, image_path):
         image = Image.open(image_path)
+        image = ImageOps.exif_transpose(image)
         image = self.fit_image_to_current_size(image)
         return ImageTk.PhotoImage(image)
 
@@ -85,7 +87,7 @@ class Application(tk.Tk):
         except IndexError: # queue is empty
             # show images from catalog if there are any
             if self.img_catalog:
-                print(f'[display_next_slide]: queue empty, showing images from catalog. catalog: {len(self.img_catalog)}')
+                print(f'[display_next_slide]: queue empty, catalog: {len(self.img_catalog)}')
                 reveal_counts = np.array([elt.num_reveals for elt in self.img_catalog])
 
                 # get indices that would sort reveal_counts
