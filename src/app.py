@@ -71,7 +71,7 @@ class Application(tk.Tk):
         w_img, h_img = image.size
 
         resize_mode = '-' if w_img > w or h_img > h else '+'
-        print(f'[resize{resize_mode}] {Path(image.filename).name} from {w_img}x{h_img} to {w}x{h}')
+        # print(f'[resize{resize_mode}] {Path(image.filename).name} from {w_img}x{h_img} to {w}x{h}')
         ratio = min(w/w_img, h/h_img)
         w_img = int(w_img*ratio)
         h_img = int(h_img*ratio)
@@ -132,7 +132,7 @@ class Application(tk.Tk):
 
 def main():
     application = Application()
-    application.set_image_directory("/home/tmp/code/slideshow/test/no_images")
+    application.set_image_directory("/home/tmp/Downloads/")
     application.start()
     application.mainloop()
 
