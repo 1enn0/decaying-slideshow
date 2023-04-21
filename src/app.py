@@ -12,11 +12,10 @@ class Application(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
 
-        self.title("Slideshow")
+        self.title("Paparazzi")
         self.geometry("800x400")
         self.fullscreen = False
         self.attributes("-fullscreen", self.fullscreen)
-        # self.configure(background='black', borderwidth=0, highlightthickness=0)
         self.configure(background='black')
         self.update_idletasks()
         self.resizable(width=True, height=True)
@@ -27,7 +26,7 @@ class Application(tk.Tk):
         self.img_catalog = list() # all images that we know of
         self.img_queue = deque() # new images that have not been shown
 
-        self.duration_ms = 4000
+        self.duration_ms = 5000
 
         # set up key binding
         self.bind("<Escape>",lambda e: self.destroy())
@@ -48,14 +47,15 @@ class Application(tk.Tk):
 
     def update_images(self):
         all_images_in_dir = set([ImageEntry(p) for p in self.image_dir.glob('*.jpg')])
-        new_images = all_images_in_dir - set(self.img_catalog) - set(self.img_queue)
+        all_known_images = set(self.img_catalog) | set(self.img_queue)
+        new_images = all_images_in_dir - all_known_images
 
         # if there are new images, add them to the queue (ordered by age)
         if new_images:
             for img in sorted(new_images):
                 self.img_queue.append(img)
             print(f'[update_images] {len(new_images)} new images, queue: {len(self.img_queue)}, catalog: {len(self.img_catalog)}')
-
+        
     def load_image(self, image_path):
         image = Image.open(image_path)
         image = self.fit_image_to_current_size(image)
@@ -80,11 +80,22 @@ class Application(tk.Tk):
             next_img_entry = self.img_queue.popleft() # newest image in queue
             self.img_catalog.append(next_img_entry)
             print(f'[display_next_slide]: showing {next_img_entry.name}, queue: {len(self.img_queue)}, catalog: {len(self.img_catalog)}')
-
-
         except IndexError: # queue is empty
-            print(f'[display_next_slide]: queue empty, catalog: {len(self.img_catalog)}')
-            self.current_slide.config(image='', text=f'Add some images to \"{self.image_dir}\"', background='#000000', foreground='#ffffff', pady=10)
+            # show images from catalog if there are any
+            if self.img_catalog:
+                print(f'[display_next_slide]: queue empty, showing images from catalog. catalog: {len(self.img_catalog)}')
+                reveal_counts = np.array([elt.num_reveals for elt in self.img_catalog])
+                # get least shown images
+                least_shown_idcs = np.argwhere(reveal_counts == reveal_counts.min()).flatten()
+
+                # and sort those by age
+                least_shown = sorted([self.img_catalog[i] for i in least_shown_idcs])
+                next_img_entry = least_shown[0]
+            else:
+                self.current_slide.config(image='', text=f'Add some images to \"{self.image_dir}\"', background='#000000', foreground='#ffffff', pady=10)
+                print(f'[display_next_slide]: queue empty, catalog empty')
+
+
 
         if next_img_entry is not None:
             next_img_entry.increment_reveals()
@@ -101,7 +112,6 @@ class Application(tk.Tk):
 
 def main():
     application = Application()
-    # application.set_image_directory("/home/tmp/Downloads/photobox_test/")
     application.set_image_directory("/home/tmp/code/slideshow/test/no_images")
     application.start()
     application.mainloop()
