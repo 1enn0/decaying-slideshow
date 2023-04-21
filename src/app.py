@@ -49,7 +49,10 @@ class Application(tk.Tk):
         self.image_dir = Path(path)
 
     def update_images(self):
-        all_images_in_dir = set([ImageEntry(p) for p in self.image_dir.glob('*.jpg')])
+        allowed_filetypes = ['*.jpg', '*.jpeg', '*.png', '*.tiff']
+        all_images_in_dir = set()
+        for ft in allowed_filetypes:
+            all_images_in_dir.update(set([ImageEntry(p) for p in self.image_dir.glob(ft)]))
         all_known_images = set(self.img_catalog) | set(self.img_queue)
         new_images = all_images_in_dir - all_known_images
 
