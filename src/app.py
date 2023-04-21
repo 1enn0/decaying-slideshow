@@ -25,8 +25,9 @@ class Application(tk.Tk):
 
         self.img_catalog = list() # all images that we know of
         self.img_queue = deque() # new images that have not been shown
+        self.last_shown_image = None
 
-        self.duration_ms = 5000
+        self.duration_ms = 2000
 
         # set up key binding
         self.bind("<Escape>",lambda e: self.destroy())
@@ -85,20 +86,36 @@ class Application(tk.Tk):
             if self.img_catalog:
                 print(f'[display_next_slide]: queue empty, showing images from catalog. catalog: {len(self.img_catalog)}')
                 reveal_counts = np.array([elt.num_reveals for elt in self.img_catalog])
-                # get least shown images
-                least_shown_idcs = np.argwhere(reveal_counts == reveal_counts.min()).flatten()
 
-                # and sort those by age
-                least_shown = sorted([self.img_catalog[i] for i in least_shown_idcs])
-                next_img_entry = least_shown[0]
+                # get indices that would sort reveal_counts
+                reveal_count_sort_idcs = np.argsort(reveal_counts)
+
+                _, split_idcs = np.unique(reveal_counts[reveal_count_sort_idcs], return_index=True)
+
+                # catalog_bucket_idcs is a list of arrays. Each array contains
+                # indices into img_catalog for a group of elements that have been shown
+                # the same number of times
+                catalog_bucket_idcs = np.split(reveal_count_sort_idcs, split_idcs[1:])
+
+                for idcs in catalog_bucket_idcs:
+                    # and sort those by age
+                    least_shown = sorted([self.img_catalog[i] for i in idcs])
+
+                    for candidate in least_shown:
+                        if self.last_shown_image is not None and candidate != self.last_shown_image:
+                            next_img_entry = candidate
+                            break
+                    
+                    if next_img_entry is not None:
+                        break
+
             else:
                 self.current_slide.config(image='', text=f'Add some images to \"{self.image_dir}\"', background='#000000', foreground='#ffffff', pady=10)
                 print(f'[display_next_slide]: queue empty, catalog empty')
 
-
-
         if next_img_entry is not None:
             next_img_entry.increment_reveals()
+            self.last_shown_image = next_img_entry
             self.next_image = self.load_image(next_img_entry.path)
             self.current_slide.config(image=self.next_image)
             self.title(next_img_entry.name)
